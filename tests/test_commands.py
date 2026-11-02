@@ -426,7 +426,7 @@ class Commands(unittest.TestCase):
             self.assertFalse((self.config / "config.json").exists())
 
     def test_control_argparse_help_and_errors(self):
-        for command in ("init", "list", "choose", "import"):
+        for command in ("init", "list", "choose", "import", "diagnose"):
             result = self.run_command("proxy487ctl", command, "--help")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("usage:", result.stdout)
