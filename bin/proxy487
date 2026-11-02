@@ -1,52 +1,77 @@
 #!/usr/bin/env python3
 """Run a command with a selected proxy; no third-party dependencies."""
+
 import os
+import pathlib
 import re
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib/megaproxy-tools'))
+sys.path.insert(
+    0, str(pathlib.Path(__file__).resolve().parents[1] / "lib/megaproxy-tools")
+)
 
-from proxy_cli import command_config, run
-from proxy_config import active_profile, directory, profile_url
+import megaproxy_tools as megaproxy
 
-KEYS = ('http_proxy', 'https_proxy', 'all_proxy', 'ws_proxy', 'wss_proxy')
-DEFAULT_NO_PROXY = 'localhost,127.0.0.1,::1,127.0.0.0/8,192.168.0.0/16'
+KEYS = ("http_proxy", "https_proxy", "all_proxy", "ws_proxy", "wss_proxy")
+DEFAULT_NO_PROXY = "localhost,127.0.0.1,::1,127.0.0.0/8,192.168.0.0/16"
 
 
-def main():
+def main() -> int | None:
     args = sys.argv[1:]
-    no_sync = args[:1] == ['--no-config-sync']
+    no_sync = args[:1] == ["--no-config-sync"]
+
     if no_sync:
         args = args[1:]
+
     if not args:
-        print('Usage: proxy487 [--no-config-sync] COMMAND [ARG ...]', file=sys.stderr)
+        print("Usage: proxy487 [--no-config-sync] COMMAND [ARG ...]", file=sys.stderr)
         return 2
-    if args[0].startswith('-'):
-        raise ValueError('Only --no-config-sync is supported before COMMAND')
-    folder = directory()
-    config = command_config(folder, no_sync)
-    proxy = profile_url(active_profile(config))
+
+    if args[0].startswith("-"):
+        raise ValueError("Only --no-config-sync is supported before COMMAND")
+
+    folder = megaproxy.config.directory()
+    config = megaproxy.cli.command_config(folder, no_sync)
+    proxy = megaproxy.config.profile_url(megaproxy.config.active_profile(config))
     env = os.environ.copy()
-    defaults = folder / 'default.env'
+    defaults = folder / "default.env"
+
     try:
         lines = defaults.read_text().splitlines()
     except FileNotFoundError:
         lines = []
+
     for number, line in enumerate(lines, 1):
-        if not line.strip() or line.lstrip().startswith('#'):
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
-        key, separator, value = line.partition('=')
+
+        key, separator, value = line.partition("=")
         key = key.strip()
-        if not separator or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key) or '\0' in value:
-            raise ValueError(f'Invalid default.env entry on line {number}')
+
+        if (
+            not separator
+            or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key)
+            or "\0" in value
+        ):
+            raise ValueError(f"Invalid default.env entry on line {number}")
+
         env.setdefault(key, value.strip())
+
     for key in KEYS:
         env[key] = env[key.upper()] = proxy
-    bypass = env.get('no_proxy', env.get('NO_PROXY', DEFAULT_NO_PROXY if config.get('routing', {}).get('bypassLocalNetworks', True) else ''))
-    env['no_proxy'] = env['NO_PROXY'] = bypass
+
+    bypass = env.get(
+        "no_proxy",
+        env.get(
+            "NO_PROXY",
+            DEFAULT_NO_PROXY
+            if config.get("routing", {}).get("bypassLocalNetworks", True)
+            else "",
+        ),
+    )
+    env["no_proxy"] = env["NO_PROXY"] = bypass
     os.execvpe(args[0], args, env)
 
 
-if __name__ == '__main__':
-    run(main)
+if __name__ == "__main__":
+    megaproxy.cli.run(main)

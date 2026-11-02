@@ -11,7 +11,7 @@ Documentation: **[English](docs/en/README.md)** · **[Русский](docs/ru/RE
 
 ## Quick start
 
-Requires Python 3.9+, Bash, curl and tar on macOS or Linux. No Git, pip, virtualenv or background service.
+Requires Python 3.10+, Bash, curl and tar on macOS or Linux. No Git, pip, virtualenv or background service.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/andre487/MegaProxyTools/main/install.sh | bash
@@ -28,8 +28,7 @@ With a piped installer, `bash -s -- --git` clones into `~/.local/src/MegaProxyTo
 and links the commands from there. `PREFIX` changes the installation root.
 Add `~/.local/bin` to PATH if needed. Settings use MegaProxyConfig v8 in
 `~/.config/megaproxy-tools/config.json` (respects `XDG_CONFIG_HOME`).
-Import also accepts ProxyList, SuperProxy, FoxyProxy, legacy browser JSON and
-ZeroOmega/SwitchyOmega fixed profiles; use `proxy487ctl import -` for stdin.
+Import accepts only MegaProxy JSON v8; use `proxy487ctl import -` for stdin.
 HTTPS and SOCKS5 are supported; incompatible protocols/settings produce a notice.
 Stable IDs are merged, existing selection and eligible omitted passwords are retained.
 A root `subscription` in imported JSON enables startup refresh, at most once per hour.
@@ -42,6 +41,8 @@ Configuration contains secrets: never commit it.
 ```sh
 python3 -m unittest discover -s tests -v
 sh -n install.sh
+uvx --from ruff==0.17.3 ruff check .
+uvx --from ruff==0.17.3 ruff format --check .
 ```
 
 ## License

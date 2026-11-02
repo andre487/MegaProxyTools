@@ -12,7 +12,7 @@ Install or update without Git:
 curl -fsSL https://raw.githubusercontent.com/andre487/MegaProxyTools/main/install.sh | bash
 ```
 
-Requires Python 3.9+, Bash, curl and tar on macOS or Linux. The installer downloads
+Requires Python 3.10+, Bash, curl and tar on macOS or Linux. The installer downloads
 an HTTPS source archive into a temporary directory, installs the commands and removes
 the temporary files. Repeating it updates the tools and preserves configuration.
 There are no third-party Python packages or background services.
@@ -70,8 +70,7 @@ least one profile.
 
 ```sh
 proxy487ctl import /path/to/MegaProxy.json
-proxy487ctl import /path/to/ProxyList.txt
-cat /path/to/FoxyProxy.json | proxy487ctl import -
+cat /path/to/MegaProxy.json | proxy487ctl import -
 proxy487ctl list
 proxy487ctl choose                   # prompt
 proxy487ctl choose 2                 # number
@@ -83,23 +82,16 @@ proxy487ctl choose proxy.example.com # unique hostname
 usernames or passwords. A hostname shared by multiple profiles is ambiguous; use
 a number or ID instead. Without a saved selection, the first profile is used.
 
-The import format is detected from UTF-8 contents (optional BOM):
+Only [MegaProxy JSON v8](https://github.com/andre487/MegaProxyConfig) is accepted,
+including its schema identifiers `net.megaproxy487.config` and `dev.megaproxy.config`.
+Input must be UTF-8 (an optional BOM is accepted), at most 1 MiB and 1,000 profiles.
+Both manual import and subscription refresh use this same format and validation.
+Other JSON structures, older configuration versions and text proxy lists are rejected.
 
-- MegaProxy JSON versions 1–8, including the legacy `dev.megaproxy.config` identifier;
-  output is always canonical version 8.
-- ProxyList URLs and SuperProxy lists with `# superproxy:proxylist:v1`, including
-  percent-encoded credentials and optional `title`/`cc` query parameters.
-- FoxyProxy JSON (`data`), legacy browser arrays or `profiles` objects, including
-  `ssl`/`socks` aliases and `host`/`hostname`/`address` fields.
-- ZeroOmega/SwitchyOmega schema versions 1–2: fixed profiles with one consistent
-  endpoint and credentials across protocols. PAC, switching and routing rules are
-  not applied. Profiles with different per-protocol endpoints/auth are skipped.
-
-Inputs and stored JSON are limited to 1 MiB and 1,000 profiles. Canonical input is
-validated against pinned MegaProxyConfig schemas, offline with stdlib; versions 1–7
-are normalized before validation. Source revision and hashes are recorded in
-`lib/megaproxy-tools/config-schema/schema-lock.json`. Validation evaluates the
-keywords used by that pinned schema, rather than providing a general JSON Schema API.
+Validation uses pinned MegaProxyConfig schemas offline with stdlib. Source revision
+and SHA-256 hashes are recorded in `lib/megaproxy-tools/config-schema/schema-lock.json`.
+The validator supports the keywords in that pinned schema rather than arbitrary
+JSON Schema documents.
 
 ### Merge rules
 
@@ -107,7 +99,6 @@ MegaProxy JSON imports update matching stable IDs and append new IDs. Existing
 profile order is retained; absent profiles are not removed. The current selection,
 including an implicit first-profile selection, is retained. On the first import,
 `activeProfileId` is used if compatible. Import never starts a command or connects.
-Formats without stable IDs create new profiles on each manual import.
 
 An omitted password retains a saved password only when type, normalized host, port
 and username are unchanged. An explicit empty password clears it. A changed recipient
@@ -125,11 +116,10 @@ Only HTTPS and SOCKS5 profiles can be executed through this portable configurati
 SOCKS5 is exported to child environment variables as `socks5h://` for proxy-side DNS;
 the child must support it. HTTPS uses `https://` and retains TLS to the proxy.
 SSH, Jump, MASQUE and profiles requiring invalid-certificate acceptance are explicitly
-skipped, never flattened into another transport. HTTP profiles from legacy imports
-are skipped because HTTP is not a portable MegaProxyConfig protocol; use an HTTPS
-endpoint. TLS fingerprints, HTTP/3 preferences, DNS settings, knock, per-app/domain
-routing and browser settings are not implemented and produce
-an import notice. ProxyList cannot preserve those settings either.
+skipped, never flattened into another transport. HTTP is not a portable
+MegaProxyConfig protocol; use an HTTPS endpoint. TLS fingerprints, HTTP/3 preferences,
+DNS settings, knock, per-app/domain routing and browser settings are not implemented
+and produce an import notice.
 
 ## Configuration subscriptions
 
@@ -178,9 +168,8 @@ application version `X-MegaProxy-Version: 0+unreleased`. Optional UTF-8 Basic Au
 sent only as origin authentication, separately from proxy credentials.
 
 A refresh replaces subscription-owned profiles and removes owned profiles absent
-from the new snapshot. Separately imported local profiles remain. Stable IDs are
-used for canonical JSON; legacy formats reuse uniquely matching owned names, then
-unique type/host/port endpoints. A canonical ID colliding with a separate local
+from the new snapshot. Separately imported local profiles remain. Profiles are
+reconciled by stable MegaProxy IDs. A canonical ID colliding with a separate local
 profile rejects that source. Selection is preserved while present; when removed,
 the downloaded active profile is preferred, then the first compatible feed profile.
 Password preservation follows the manual merge rules.

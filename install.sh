@@ -11,7 +11,7 @@ case "$install_from_git" in
     *) printf 'INSTALL_FROM_GIT must be 0 or 1\n' >&2; exit 2 ;;
 esac
 command -v python3 >/dev/null
-python3 -c 'import sys; sys.exit("Python 3.9+ is required") if sys.version_info < (3, 9) else None'
+python3 -c 'import sys; sys.exit("Python 3.10+ is required") if sys.version_info < (3, 10) else None'
 prefix=${PREFIX:-"$HOME/.local"}
 case "$prefix" in
     /*) ;;
@@ -20,7 +20,7 @@ esac
 installer=${BASH_SOURCE:-$0}
 source_dir=$(dirname "$installer")
 local_source=0
-if [ -f "$installer" ] && [ -f "$source_dir/bin/proxy487" ] && [ -f "$source_dir/lib/megaproxy-tools/proxy_config.py" ]; then
+if [ -f "$installer" ] && [ -f "$source_dir/bin/proxy487" ] && [ -f "$source_dir/lib/megaproxy-tools/megaproxy_tools/config.py" ]; then
     source_dir=$(cd "$source_dir" && pwd -P)
     local_source=1
 fi
@@ -73,9 +73,9 @@ mkdir -p "$prefix/bin"
 prefix=$(cd "$prefix" && pwd -P)
 [ "$source_dir/bin" != "$(cd "$prefix/bin" && pwd -P)" ] || { printf 'Installation bin must differ from the source bin\n' >&2; exit 1; }
 if [ "$install_from_git" = 0 ]; then
-    mkdir -p "$prefix/lib/megaproxy-tools/config-schema"
-    for name in proxy_config.py config_sync.py proxy_cli.py; do
-        install -m 644 "lib/megaproxy-tools/$name" "$prefix/lib/megaproxy-tools/$name"
+    mkdir -p "$prefix/lib/megaproxy-tools/config-schema" "$prefix/lib/megaproxy-tools/megaproxy_tools"
+    for name in __init__.py config.py sync.py cli.py; do
+        install -m 644 "lib/megaproxy-tools/megaproxy_tools/$name" "$prefix/lib/megaproxy-tools/megaproxy_tools/$name"
     done
     for name in megaproxy-v8.schema.json android-v8.schema.json LICENSE schema-lock.json; do
         install -m 644 "lib/megaproxy-tools/config-schema/$name" "$prefix/lib/megaproxy-tools/config-schema/$name"
