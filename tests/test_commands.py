@@ -1,11 +1,11 @@
 import hashlib
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 BIN = Path(__file__).resolve().parents[1] / 'bin'
 KEYS = ('http_proxy', 'https_proxy', 'all_proxy', 'ws_proxy', 'wss_proxy')

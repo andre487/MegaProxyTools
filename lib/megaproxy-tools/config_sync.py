@@ -1,19 +1,28 @@
 """Hourly HTTPS configuration snapshots; no background process or external packages."""
 import base64
-from contextlib import contextmanager
 import fcntl
 import hashlib
-from http.client import HTTPException
 import json
 import os
 import sys
-from pathlib import Path
 import time
+from contextlib import contextmanager
+from http.client import HTTPException
+from pathlib import Path
 from urllib.error import URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from proxy_config import (LIMIT, active_profile, atomic_write, merge, parse_import,
-                          profile_url, read_text, validate, warn)
+from proxy_config import (
+    LIMIT,
+    active_profile,
+    atomic_write,
+    merge,
+    parse_import,
+    profile_url,
+    read_text,
+    validate,
+    warn,
+)
 
 
 @contextmanager

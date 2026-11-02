@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """Manage proxy487 configuration, profiles and imports."""
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib/megaproxy-tools'))
-from proxy_config import (LIMIT, active_profile, atomic_write, directory, load_config,
-                          merge, parse_import, read_text)
+
 from config_sync import config_lock, save_import, sync_config
 from proxy_cli import arguments, command_config, initialize, run
+from proxy_config import (
+    LIMIT,
+    active_profile,
+    atomic_write,
+    directory,
+    load_config,
+    merge,
+    parse_import,
+    read_text,
+)
 
 
 def main():

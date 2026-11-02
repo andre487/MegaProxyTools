@@ -1,10 +1,10 @@
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tarfile
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,7 +21,9 @@ class Installation(unittest.TestCase):
             fake_bin = folder / 'fake-bin'
             fake_bin.mkdir()
             curl = fake_bin / 'curl'
-            curl.write_text(f'#!{sys.executable}\n' + '''import os, shutil, sys
+            curl.write_text(f'#!{sys.executable}\n' + '''import os
+import shutil
+import sys
 from pathlib import Path
 if os.environ.get('FAIL_DOWNLOAD'):
     sys.exit(22)

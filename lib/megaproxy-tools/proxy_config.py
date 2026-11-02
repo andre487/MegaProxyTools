@@ -2,10 +2,10 @@
 import ipaddress
 import json
 import os
-from pathlib import Path
 import re
 import sys
 import tempfile
+from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlsplit, urlunsplit
 from uuid import uuid4
 

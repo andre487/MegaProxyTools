@@ -1,19 +1,20 @@
 import base64
-from contextlib import redirect_stderr
-from concurrent.futures import ThreadPoolExecutor
 import io
 import json
 import os
-from pathlib import Path
 import runpy
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, Mock
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stderr
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib/megaproxy-tools'))
+
 import config_sync as sync
 from proxy_config import atomic_write, load_config, merge, parse_import
 

@@ -1,8 +1,8 @@
 """Shared command-line options, configuration startup and safe error reporting."""
 import sys
 
-from proxy_config import directory, load_config
 from config_sync import config_lock, sync_config
+from proxy_config import directory, load_config
 
 
 def arguments():
