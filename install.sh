@@ -20,7 +20,7 @@ else
 fi
 prefix=${PREFIX:-"$HOME/.local"}
 mkdir -p "$prefix/bin" "$prefix/lib/megaproxy-tools/config-schema"
-for name in proxy_config.py config_sync.py; do
+for name in proxy_config.py config_sync.py proxy_cli.py; do
     install -m 644 "lib/megaproxy-tools/$name" "$prefix/lib/megaproxy-tools/$name"
 done
 for name in megaproxy-v8.schema.json android-v8.schema.json LICENSE schema-lock.json; do

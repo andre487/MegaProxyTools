@@ -58,6 +58,30 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                                                env=run_env, text=True, capture_output=True)
                         self.assertEqual(check.returncode, 0, check.stderr)
                     self.assertTrue((prefix / 'lib/megaproxy-tools/config_sync.py').exists())
+                    independent_env = dict(run_env, XDG_CONFIG_HOME=str(prefix / 'independent-config'))
+                    runner, controller = prefix / 'bin/proxy487', prefix / 'bin/proxy487ctl'
+                    hidden_runner = runner.with_name('proxy487-hidden')
+                    runner.rename(hidden_runner)
+                    try:
+                        check = subprocess.run([str(controller), '--no-config-sync', 'import', '-'],
+                                               input='https://proxy.example:443', env=independent_env,
+                                               text=True, capture_output=True)
+                        self.assertEqual(check.returncode, 0, check.stderr)
+                        check = subprocess.run([str(controller), '--no-config-sync', 'list'],
+                                               env=independent_env, text=True, capture_output=True)
+                        self.assertEqual(check.returncode, 0, check.stderr)
+                        self.assertIn('proxy.example', check.stdout)
+                    finally:
+                        hidden_runner.rename(runner)
+                    hidden_controller = controller.with_name('proxy487ctl-hidden')
+                    controller.rename(hidden_controller)
+                    try:
+                        check = subprocess.run([str(runner), '--no-config-sync', sys.executable, '-c',
+                            'import os; assert os.environ["https_proxy"] == "https://proxy.example:443"'],
+                            env=independent_env, text=True, capture_output=True)
+                        self.assertEqual(check.returncode, 0, check.stderr)
+                    finally:
+                        hidden_controller.rename(controller)
                 if mode == 'pipe':
                     config = folder / '.config/megaproxy-tools/config.json'
                     config.parent.mkdir(parents=True)

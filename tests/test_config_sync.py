@@ -234,12 +234,12 @@ class ConfigSync(unittest.TestCase):
         atomic_write(sync.state_path(folder), state)
         with patch.object(sync, 'download', return_value=json.dumps(portable(profile('new')))) as request, patch.object(sys, 'argv', ['proxy487ctl', 'list']), patch('sys.stdout', new_callable=io.StringIO):
             with self.assertRaises(SystemExit):
-                runpy.run_path(str(ROOT / 'bin/proxy487'), run_name='proxy487ctl')
+                runpy.run_path(str(ROOT / 'bin/proxy487ctl'), run_name='__main__')
             request.assert_called_once()
         # The subsequent ctl launch shares the timestamp and does not fetch again.
         with patch.object(sync, 'download') as request, patch.object(sys, 'argv', ['proxy487ctl', 'list']), patch('sys.stdout', new_callable=io.StringIO):
             with self.assertRaises(SystemExit):
-                runpy.run_path(str(ROOT / 'bin/proxy487'), run_name='proxy487ctl')
+                runpy.run_path(str(ROOT / 'bin/proxy487ctl'), run_name='__main__')
             request.assert_not_called()
 
 
