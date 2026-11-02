@@ -41,6 +41,24 @@ class Commands(unittest.TestCase):
             self.assertEqual(env[key.upper()], env[key])
         self.assertEqual(env['no_proxy'], 'internal.example')
 
+    def test_default_env(self):
+        self.configure('https://host.example:443')
+        defaults = self.config / 'default.env'
+        defaults.write_text('# comment\n\nGODEBUG=http2client=0\nEMPTY=\nLITERAL=$(no-execution)=value\nhttp_proxy=http://wrong:80\n')
+        env = self.probe('proxy487')
+        self.assertEqual(env['GODEBUG'], 'http2client=0')
+        self.assertEqual(env['EMPTY'], '')
+        self.assertEqual(env['LITERAL'], '$(no-execution)=value')
+        self.assertEqual(env['http_proxy'], 'https://host.example:443')
+        self.env['GODEBUG'] = 'existing'
+        self.assertEqual(self.probe('proxy487')['GODEBUG'], 'existing')
+        self.assertNotIn('LITERAL', self.probe('noproxy487'))
+        defaults.write_text('BAD-NAME=secret\n')
+        result = self.run_command('proxy487', 'true')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('line 1', result.stderr)
+        self.assertNotIn('secret', result.stderr)
+
     def test_clear_all_variants(self):
         for key in (*KEYS, 'no_proxy'):
             self.env[key] = self.env[key.upper()] = 'sentinel'

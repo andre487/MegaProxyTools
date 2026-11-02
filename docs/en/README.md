@@ -42,3 +42,17 @@ They do not modify the parent shell. `--help` needs no configuration.
 A successful HTTPS request does not establish
 WebSocket support. Credentials stay in the child environment; never paste environment dumps
 or proxy URLs into issues. Avoid commands that print the complete environment.
+
+## Optional environment defaults
+
+`~/.proxy487/default.env` supplies defaults for commands run through `proxy487`:
+
+```dotenv
+GODEBUG=http2client=0
+```
+
+Use literal `NAME=VALUE` lines; blank lines and whole-line `#` comments are ignored.
+Whitespace around names and values is trimmed. Quotes, `export`, interpolation and shell
+commands are not interpreted. Existing environment variables take precedence; proxy URLs
+are always assigned from the selected profile. Invalid entries fail before command execution.
+The file is optional and is not loaded by `noproxy487`. Keep sensitive files private (`chmod 600`).

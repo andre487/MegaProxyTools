@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run a command with a selected proxy; no third-party dependencies."""
 import os
+import re
 from pathlib import Path
 import sys
 from urllib.parse import urlsplit, urlunsplit
@@ -52,6 +53,19 @@ def main():
     if proxy is None:
         raise ValueError('Selected host is absent from ~/.proxy487/proxy-list.txt')
     env = os.environ.copy()
+    defaults = directory / 'default.env'
+    try:
+        lines = defaults.read_text().splitlines()
+    except FileNotFoundError:
+        lines = []
+    for number, line in enumerate(lines, 1):
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        key, separator, value = line.partition('=')
+        key = key.strip()
+        if not separator or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key) or '\0' in value:
+            raise ValueError(f'Invalid default.env entry on line {number}')
+        env.setdefault(key, value.strip())
     for key in KEYS:
         env[key] = env[key.upper()] = proxy
     bypass = env.get('no_proxy', env.get('NO_PROXY', DEFAULT_NO_PROXY))
