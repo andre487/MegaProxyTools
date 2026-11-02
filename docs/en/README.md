@@ -27,35 +27,44 @@ curl -fsSL https://raw.githubusercontent.com/andre487/MegaProxyTools/main/instal
 set it on the `bash` side of the pipe. Use the same ref in the installer URL when
 installing a different version of the installer itself.
 
-A local checkout still supports `./install.sh` without network access.
+### Git checkout installation
+
+```sh
+./install.sh --git
+INSTALL_FROM_GIT=1 ./install.sh
+curl -fsSL https://raw.githubusercontent.com/andre487/MegaProxyTools/main/install.sh | bash -s -- --git
+curl -fsSL https://raw.githubusercontent.com/andre487/MegaProxyTools/main/install.sh | INSTALL_FROM_GIT=1 bash
+```
+
+This optional mode requires Git. From a repository, it creates absolute symlinks in
+`PREFIX/bin` to that checkout's scripts; edits take effect immediately, including
+library changes. It does not fetch or change the current repository. A piped
+installer clones into `PREFIX/src/MegaProxyTools` (default `~/.local/src/MegaProxyTools`).
+Repeating the piped Git installation fetches the selected `MEGAPROXY_TOOLS_REF`
+(default `main`), checks it out, and performs a fast-forward-only update. Local
+changes or an unrelated source directory stop the installation without replacement.
+Libraries are read from the checkout. Keep that directory while using the links.
+Running the default installation again replaces the links with standalone copies.
+
+A local checkout also supports `./install.sh` without network access.
 `PREFIX=/custom/path ./install.sh` installs commands into `/custom/path/bin` and
 runtime files into `/custom/path/lib/megaproxy-tools`. Re-run after pulling updates.
 To uninstall, remove the three commands and that library directory; settings remain.
 You can also run `./bin/proxy487` and `./bin/proxy487ctl` from the complete checkout.
-Old dotfiles commands must be removed or replaced with forwarding wrappers if earlier
-in PATH. Check `command -v proxy487`.
 
-## Configuration location and migration
+## Configuration location
 
 Configuration lives in `$XDG_CONFIG_HOME/megaproxy-tools`, defaulting to
 `~/.config/megaproxy-tools`. Empty or relative `XDG_CONFIG_HOME` uses the default.
-If the new directory does not exist, the entire legacy `~/.proxy487` directory is
-used. Files from different directories are never combined.
 
 `config.json` uses the [MegaProxyConfig version 8 contract](https://github.com/andre487/MegaProxyConfig).
 It stores profiles with stable IDs and the selection in `activeProfileId`.
 New application directories use mode 0700; JSON is written atomically with mode 0600.
 Treat configuration as secret: it contains credentials.
 
-If only `proxy-list.txt` exists, the first invocation migrates it to `config.json`,
-retaining the hostname selected by `chosen`. The original files remain as backups;
-after migration, only JSON is authoritative. `default.env` remains a separate local
-file. To move a legacy directory to XDG, first ensure the destination is absent,
-then move the directory and set directory/file permissions to 0700/0600.
-
-`proxy487ctl init` creates the configuration directory or
-migrates existing settings. On a fresh installation, import a nonempty configuration
-next: the portable schema requires at least one profile.
+`default.env` is a separate local file. `proxy487ctl init` creates the configuration
+directory. Import a nonempty configuration next: the portable schema requires at
+least one profile.
 
 ## Management and import
 

@@ -23,9 +23,11 @@ noproxy487 curl https://example.com
 ```
 
 Run the same install command to update; configuration is retained.
+For a live Git checkout, use `./install.sh --git` or `INSTALL_FROM_GIT=1 ./install.sh`.
+With a piped installer, `bash -s -- --git` clones into `~/.local/src/MegaProxyTools`
+and links the commands from there. `PREFIX` changes the installation root.
 Add `~/.local/bin` to PATH if needed. Settings use MegaProxyConfig v8 in
-`~/.config/megaproxy-tools/config.json` (respects `XDG_CONFIG_HOME`). Existing
-`proxy-list.txt` and `chosen` are migrated automatically, retaining the originals.
+`~/.config/megaproxy-tools/config.json` (respects `XDG_CONFIG_HOME`).
 Import also accepts ProxyList, SuperProxy, FoxyProxy, legacy browser JSON and
 ZeroOmega/SwitchyOmega fixed profiles; use `proxy487ctl import -` for stdin.
 HTTPS and SOCKS5 are supported; incompatible protocols/settings produce a notice.

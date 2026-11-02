@@ -25,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument('--no-config-sync', action='store_true', help='skip subscription refresh')
     commands = parser.add_subparsers(dest='command', required=True)
-    commands.add_parser('init', help='initialize the configuration directory or migrate settings')
+    commands.add_parser('init', help='initialize the configuration directory')
     commands.add_parser('list', help='list profiles without credentials')
     choose = commands.add_parser('choose', help='select a profile, interactively if omitted')
     choose.add_argument('selection', nargs='?', metavar='NUMBER|ID|HOST')
