@@ -37,8 +37,8 @@ It does not override application-specific proxy files, OS proxy settings, VPNs o
 Both tools preserve arguments, signals and the command exit status through exec.
 They do not modify the parent shell. `--help` needs no configuration.
 
-## Transport audit
+## Troubleshooting
 
-See [transport findings](../transport-audit.md). A successful HTTPS request does not establish
+A successful HTTPS request does not establish
 WebSocket support. Credentials stay in the child environment; never paste environment dumps
 or proxy URLs into issues. Avoid commands that print the complete environment.
