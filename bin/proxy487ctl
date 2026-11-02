@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""Manage proxy487 configuration, profiles and imports."""
+
+import argparse
+import json
+import pathlib
+import sys
+
+sys.path.insert(
+    0, str(pathlib.Path(__file__).resolve().parents[1] / "lib/megaproxy-tools")
+)
+
+import megaproxy_tools as megaproxy
+
+
+def main() -> int | None:
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument(
+        "--no-config-sync", action="store_true", help="skip subscription refresh"
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("init", help="initialize the configuration directory")
+    commands.add_parser("list", help="list profiles without credentials")
+    choose = commands.add_parser(
+        "choose", help="select a profile, interactively if omitted"
+    )
+    choose.add_argument("selection", nargs="?", metavar="NUMBER|ID|HOST")
+    importer = commands.add_parser("import", help="import and merge configuration")
+    importer.add_argument(
+        "file", metavar="FILE", help="configuration file, or - for stdin"
+    )
+    args = parser.parse_args()
+    no_sync = args.no_config_sync
+    folder = megaproxy.config.directory()
+
+    if args.command == "init":
+        return megaproxy.cli.initialize(no_sync)
+
+    if args.command == "import":
+        if args.file == "-":
+            data = sys.stdin.buffer.read(megaproxy.config.LIMIT + 1)
+
+            if len(data) > megaproxy.config.LIMIT:
+                raise ValueError("Import exceeds 1 MiB")
+
+            try:
+                text = data.decode("utf-8-sig")
+            except UnicodeError:
+                raise ValueError("Import must be UTF-8") from None
+        else:
+            text = megaproxy.config.read_text(pathlib.Path(args.file))
+
+        incoming = megaproxy.config.parse_import(text)
+
+        with megaproxy.sync.config_lock(folder):
+            current = megaproxy.config.load_config(folder, missing_ok=True)
+            config = megaproxy.config.merge(current, incoming)
+            megaproxy.sync.save_import(folder, current, incoming, config)
+
+            if not no_sync:
+                config = megaproxy.sync.sync_config(folder, config)
+
+        print(
+            f"Imported {len(incoming['profiles'])} profiles; total {len(config['profiles'])}"
+        )
+        return
+
+    config = megaproxy.cli.command_config(folder, no_sync)
+    profiles = config["profiles"]
+    selected = megaproxy.config.active_profile(config)
+
+    if args.command == "list" or args.selection is None:
+        for number, profile in enumerate(profiles, 1):
+            p = profile["proxy"]
+            host = f"[{p['host']}]" if ":" in p["host"] else p["host"]
+            # JSON escaping prevents imported labels/IDs from injecting terminal controls.
+            label = json.dumps(profile.get("name", ""), ensure_ascii=True)
+            identifier = json.dumps(profile["id"], ensure_ascii=True)
+            print(
+                f"{'*' if profile['id'] == selected['id'] else ' '} {number} {p['type']}://{host}:{p['port']} {label} [{identifier}]"
+            )
+
+        if args.command == "list":
+            return
+
+        try:
+            value = input("Choose proxy (number, ID or hostname): ").strip()
+        except EOFError:
+            raise ValueError("No selection provided") from None
+    else:
+        value = args.selection
+
+    matches = [p for p in profiles if p["id"] == value]
+
+    if not matches and value.isascii() and value.isdigit():
+        number = int(value)
+
+        if not 1 <= number <= len(profiles):
+            raise ValueError("Proxy number is out of range")
+
+        matches = [profiles[number - 1]]
+
+    if not matches:
+        matches = [
+            p
+            for p in profiles
+            if p["proxy"]["host"].lower() == value.lower().rstrip(".")
+        ]
+
+    if len(matches) != 1:
+        raise ValueError("Unknown or ambiguous selection; use profile number or ID")
+
+    with megaproxy.sync.config_lock(folder):
+        config = megaproxy.config.load_config(folder)
+
+        if matches[0]["id"] not in {p["id"] for p in config["profiles"]}:
+            raise ValueError("Profile was removed during selection; choose again")
+
+        config["activeProfileId"] = matches[0]["id"]
+        megaproxy.config.atomic_write(folder / "config.json", config)
+
+    print("Selected profile")
+
+
+if __name__ == "__main__":
+    megaproxy.cli.run(main)
