@@ -36,6 +36,18 @@ Use `proxy487 --no-config-sync COMMAND` or `proxy487ctl --no-config-sync list` t
 Refresh logs go to stderr before command execution; failures retain saved settings.
 Configuration contains secrets: never commit it.
 
+## Diagnostics
+
+```sh
+proxy487ctl diagnose
+proxy487ctl diagnose --speed --megabytes 10
+proxy487ctl diagnose --speed --compare
+```
+
+Checks the selected proxy; speed measurement is optional (10, 25 or 50 MB each way).
+`--compare` also tests a direct connection. Diagnostics require curl 8.4+ with TLS
+and HTTPS-proxy support; HTTP/2 depends on the curl build.
+
 ## Development
 
 ```sh

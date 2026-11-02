@@ -208,6 +208,50 @@ A successful HTTPS request does not establish WebSocket support. Never paste pro
 URLs or environment dumps into issues. Never replace `https://` with `http://` unless
 the endpoint actually serves plaintext HTTP.
 
+## Diagnostics and optional speed measurement
+
+```sh
+proxy487ctl diagnose
+proxy487ctl --no-config-sync diagnose
+proxy487ctl diagnose --speed --megabytes 10
+proxy487ctl diagnose --speed --megabytes 25 --compare
+proxy487ctl diagnose --http-version 1.1
+proxy487ctl diagnose --http-version 2
+```
+
+The active profile name, ID and credential-free endpoint are printed first.
+The default checks only the selected proxy: an HTTPS request to example.com,
+certificate verification, DNS/TCP/connection-setup timings, external IP and country.
+HTTPS proxies must complete CONNECT; SOCKS5 uses proxy-side destination DNS.
+Cloudflare trace is tried first; IP/country fallbacks match AndroidMegaProxy's
+providers and are validated before display. Country lookup failure is nonfatal;
+HTTPS or IP lookup failure gives exit status 1.
+
+`--speed` adds three latency probes (median request TTFB after connection setup),
+a download and an upload through Cloudflare. `--megabytes` selects 10, 25 or 50
+**decimal MB per direction**, default 10. Without `--speed`, no bulk transfer runs.
+`--compare` explicitly adds a direct route with inherited proxy settings disabled;
+with speed enabled it transfers twice the per-route amount (40 MB total by default).
+The selected profile and configuration are never changed by the measurements.
+Usual startup subscription refresh still applies; use the global `--no-config-sync`
+to skip it.
+
+The system curl must be 8.4+ for bounded transfers, support TLS and, for HTTPS
+profiles, HTTPS-proxy. HTTP/2 requires that curl feature. `--http-version 2` requests
+HTTP/2 with curl's HTTP/1.1 fallback; default `auto` uses curl negotiation. Actual
+HTTP/TLS versions are reported where observed. These checks use TCP HTTPS/SOCKS5;
+there are no Android VPN, QUIC/HTTP3, UDP relay or TLS-fingerprint tests.
+
+Credentials are supplied to curl through stdin, never command arguments. User
+curlrc and inherited proxy/bypass variables are disabled so a successful check
+cannot silently bypass the selected proxy. TLS verification stays enabled and
+redirects are not followed. Normal responses are capped at 16 KiB; downloads must
+match the selected size and uploads send exactly that many zero bytes. Requests
+have a 10-second connect timeout and 10-second total limit (120 seconds per bulk
+transfer). Temporary private files are removed after use. Raw curl errors and
+response bodies are not printed; failures report only a sanitized category/status.
+Exit status is 0 on success, 1 on a failed check, or 130 on interruption.
+
 ## Optional environment defaults
 
 `~/.config/megaproxy-tools/default.env` supplies local defaults for `proxy487`:

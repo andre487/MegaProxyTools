@@ -29,6 +29,30 @@ def main() -> int | None:
     importer.add_argument(
         "file", metavar="FILE", help="configuration file, or - for stdin"
     )
+    diagnostic = commands.add_parser(
+        "diagnose", help="check the selected proxy and optionally measure speed"
+    )
+    diagnostic.add_argument(
+        "--speed", action="store_true", help="measure download and upload speed"
+    )
+    diagnostic.add_argument(
+        "--megabytes",
+        type=int,
+        choices=(10, 25, 50),
+        default=10,
+        help="MB per download and upload, with --speed (default: 10)",
+    )
+    diagnostic.add_argument(
+        "--compare",
+        action="store_true",
+        help="also test a direct connection without proxy",
+    )
+    diagnostic.add_argument(
+        "--http-version",
+        choices=("auto", "1.1", "2"),
+        default="auto",
+        help="HTTP version preference (default: curl negotiation)",
+    )
     args = parser.parse_args()
     no_sync = args.no_config_sync
     folder = megaproxy.config.directory()
@@ -66,6 +90,15 @@ def main() -> int | None:
         return
 
     config = megaproxy.cli.command_config(folder, no_sync)
+    if args.command == "diagnose":
+        return megaproxy.diagnostics.diagnose(
+            megaproxy.config.active_profile(config),
+            measure_speed=args.speed,
+            megabytes=args.megabytes,
+            compare=args.compare,
+            http_version=args.http_version,
+        )
+
     profiles = config["profiles"]
     selected = megaproxy.config.active_profile(config)
 
