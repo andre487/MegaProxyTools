@@ -1,14 +1,8 @@
-"""Shared command-line options, configuration startup and safe error reporting."""
+"""Shared configuration startup and safe error reporting."""
 import sys
 
 from config_sync import config_lock, sync_config
 from proxy_config import directory, load_config
-
-
-def arguments():
-    args = sys.argv[1:]
-    no_sync = args[:1] == ['--no-config-sync']
-    return (args[1:] if no_sync else args), no_sync
 
 
 def command_config(folder, no_sync=False):

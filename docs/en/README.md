@@ -53,7 +53,7 @@ after migration, only JSON is authoritative. `default.env` remains a separate lo
 file. To move a legacy directory to XDG, first ensure the destination is absent,
 then move the directory and set directory/file permissions to 0700/0600.
 
-`proxy487ctl init` (also `proxy487 --init`) creates the configuration directory or
+`proxy487ctl init` creates the configuration directory or
 migrates existing settings. On a fresh installation, import a nonempty configuration
 next: the portable schema requires at least one profile.
 
@@ -146,7 +146,7 @@ values are clamped to 60. Failed attempts count too. `enabled: false` pauses che
 
 ```sh
 proxy487 --no-config-sync curl https://example.com
-proxy487 --no-config-sync -- COMMAND ARG
+proxy487 --no-config-sync COMMAND ARG
 proxy487ctl --no-config-sync list
 proxy487ctl --no-config-sync import MegaProxy.json
 ```
@@ -193,7 +193,7 @@ imports, selection and refresh; interactive selection releases it while waiting.
 
 ## Running commands
 
-`proxy487 [--] COMMAND [ARG ...]` assigns lowercase and uppercase HTTP_PROXY,
+`proxy487 [--no-config-sync] COMMAND [ARG ...]` assigns lowercase and uppercase HTTP_PROXY,
 HTTPS_PROXY, ALL_PROXY, WS_PROXY and WSS_PROXY for the child only. Existing `no_proxy`
 takes precedence over `NO_PROXY`, including empty values. Otherwise local bypass
 (default true) includes localhost, loopback and 192.168/16; false uses an empty list.
@@ -202,7 +202,9 @@ CIDR support varies by client. WebSocket environment variables are not universal
 `noproxy487 [--] COMMAND [ARG ...]` clears these variables and NO_PROXY in every letter
 case. It does not override application-specific files, OS settings, VPNs or transparent
 proxies. Arguments, signals and the child exit status are preserved through exec.
-The parent shell is unchanged. `--help` needs no user configuration.
+The parent shell is unchanged. `proxy487ctl --help` and subcommand `--help` need no
+user configuration. `proxy487` recognizes only the leading `--no-config-sync` option;
+initialization and help belong to `proxy487ctl`.
 
 A successful HTTPS request does not establish WebSocket support. Never paste proxy
 URLs or environment dumps into issues. Never replace `https://` with `http://` unless

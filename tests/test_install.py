@@ -55,7 +55,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                     self.assertFalse(prefix.exists())
                 else:
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    for command in ('proxy487', 'noproxy487', 'proxy487ctl'):
+                    for command in ('noproxy487', 'proxy487ctl'):
                         check = subprocess.run([str(prefix / 'bin' / command), '--help'],
                                                env=run_env, text=True, capture_output=True)
                         self.assertEqual(check.returncode, 0, check.stderr)

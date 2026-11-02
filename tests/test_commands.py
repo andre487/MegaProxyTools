@@ -83,14 +83,14 @@ class Commands(unittest.TestCase):
 
     def test_init_is_private_and_preserves_config(self):
         self.config.rmdir()
-        self.assertEqual(self.run_command('proxy487', '--init').returncode, 0)
+        self.assertEqual(self.run_command('proxy487ctl', 'init').returncode, 0)
         self.assertEqual(self.config.stat().st_mode & 0o777, 0o700)
         self.configure('https://host.example:443\n')
-        self.assertEqual(self.run_command('proxy487', '--init').returncode, 0)
+        self.assertEqual(self.run_command('proxy487ctl', 'init').returncode, 0)
         target = self.config / 'config.json'
         self.assertEqual(target.stat().st_mode & 0o777, 0o600)
         before = target.read_bytes()
-        self.run_command('proxy487', '--init')
+        self.run_command('proxy487ctl', 'init')
         self.assertEqual(target.read_bytes(), before)
         self.assertEqual((self.config / 'proxy-list.txt').read_text(), 'https://host.example:443\n')
 
@@ -108,10 +108,10 @@ class Commands(unittest.TestCase):
         custom = self.home / 'custom-config'
         self.env['XDG_CONFIG_HOME'] = str(custom)
         self.assertEqual(self.probe('proxy487')['https_proxy'], 'https://legacy.example:443')
-        self.run_command('proxy487', '--init')
+        self.run_command('proxy487ctl', 'init')
         self.assertFalse(custom.exists())
         legacy.rename(self.home / 'legacy-backup')
-        self.assertEqual(self.run_command('proxy487', '--init').returncode, 0)
+        self.assertEqual(self.run_command('proxy487ctl', 'init').returncode, 0)
         target = custom / 'megaproxy-tools'
         self.assertEqual(target.stat().st_mode & 0o777, 0o700)
         self.assertFalse((target / 'config.json').exists())
@@ -304,13 +304,29 @@ class Commands(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse((self.config / 'config.json').exists())
 
+    def test_control_argparse_help_and_errors(self):
+        for command in ('init', 'list', 'choose', 'import'):
+            result = self.run_command('proxy487ctl', command, '--help')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('usage:', result.stdout)
+        for args in ((), ('import',), ('unknown',), ('list', 'extra'), ('choose', '1', 'extra'),
+                     ('--no-config', 'list'), ('list', '--no-config-sync')):
+            result = self.run_command('proxy487ctl', *args)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('usage:', result.stderr)
+        self.assertFalse((self.config / 'config.json').exists())
+
     def test_usage_missing_config_exit_and_arguments(self):
         for name in ('proxy487', 'noproxy487', 'proxy487ctl'):
             self.assertEqual(self.run_command(name).returncode, 2)
+        for name in ('noproxy487', 'proxy487ctl'):
             self.assertEqual(self.run_command(name, '--help').returncode, 0)
+        for flag in ('--help', '--init', '--', '--no-config', '--unknown'):
+            self.assertNotEqual(self.run_command('proxy487', flag).returncode, 0)
+            self.assertFalse((self.config / 'config.json').exists())
         self.assertNotEqual(self.run_command('proxy487', 'true').returncode, 0)
         self.configure('https://localhost:8080')
-        result = self.run_command('proxy487', '--', sys.executable, '-c',
+        result = self.run_command('proxy487', sys.executable, '-c',
                                   'import sys; assert sys.argv[1] == "a b"; sys.exit(23)', 'a b')
         self.assertEqual(result.returncode, 23)
         self.assertNotEqual(self.run_command('proxy487', '/nonexistent/command').returncode, 0)
