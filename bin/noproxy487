@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Run a command without standard HTTP, SOCKS and WebSocket proxy variables."""
+import os
+import sys
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args == ['--help']:
+        print('Usage: noproxy487 [--] COMMAND [ARG ...]')
+        return 0 if args else 2
+    if args[0] == '--':
+        args = args[1:]
+    if not args:
+        print('A command is required', file=sys.stderr)
+        return 2
+    keys = {'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy', 'ws_proxy', 'wss_proxy'}
+    env = {k: v for k, v in os.environ.items() if k.lower() not in keys}
+    os.execvpe(args[0], args, env)
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except OSError:
+        print('Cannot execute command', file=sys.stderr)
+        sys.exit(1)
