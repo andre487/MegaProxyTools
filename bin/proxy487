@@ -1,59 +1,52 @@
 #!/usr/bin/env python3
 """Run a command with a selected proxy; no third-party dependencies."""
+import json
 import os
 import re
 from pathlib import Path
 import sys
-from urllib.parse import urlsplit, urlunsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib/megaproxy-tools'))
+from proxy_config import (active_profile, atomic_write, directory, load_config, merge,
+                          parse_import, profile_url, read_text, LIMIT)
+from config_sync import config_lock, save_import, sync_config
 
 KEYS = ('http_proxy', 'https_proxy', 'all_proxy', 'ws_proxy', 'wss_proxy')
 DEFAULT_NO_PROXY = 'localhost,127.0.0.1,::1,127.0.0.0/8,192.168.0.0/16'
 
 
-def normalize(value):
-    try:
-        url = urlsplit(value)
-        if url.scheme not in ('http', 'https', 'socks5', 'socks5h') or not url.hostname or not url.port:
-            raise ValueError
-        if url.path not in ('', '/') or any(c.isspace() for c in value):
-            raise ValueError
-        return urlunsplit((url.scheme, url.netloc, '', '', ''))
-    except ValueError:
-        raise ValueError('Invalid proxy URL: expected http(s)://host:port or socks5(h)://host:port') from None
+def initialize(no_sync=False):
+    folder = directory()
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if (folder / 'config.json').exists() or (folder / 'proxy-list.txt').exists():
+        config = load_config(folder)
+        if not no_sync:
+            sync_config(folder, config)
+        print(f'Configuration: {folder / "config.json"}')
+    else:
+        print(f'Configuration directory: {folder}; use proxy487ctl import FILE')
 
 
 def main():
-    args = sys.argv[1:]
-    directory = Path.home() / '.proxy487'
+    args, no_sync = arguments()
+    folder = directory()
     if args == ['--init']:
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        target = directory / 'proxy-list.txt'
-        if not target.exists():
-            with os.fdopen(os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
-                stream.write('# One proxy URL per line; credentials must be URL-encoded.\n')
-        print(f'Add your proxy URL to {target}')
-        return
+        with config_lock(folder):
+            return initialize(no_sync)
     if not args or args == ['--help']:
-        print('Usage: proxy487 [--] COMMAND [ARG ...]\n       proxy487 --init')
+        print('Usage: proxy487 [--no-config-sync] [--] COMMAND [ARG ...]\n       proxy487 [--no-config-sync] --init')
         return 0 if args else 2
     if args[0] == '--':
         args = args[1:]
     if not args:
         raise ValueError('A command is required')
-    try:
-        proxies = [normalize(line.strip()) for line in (directory / 'proxy-list.txt').read_text().splitlines()
-                   if line.strip() and not line.lstrip().startswith('#')]
-    except FileNotFoundError:
-        raise ValueError('Run proxy487 --init, then add a proxy URL to ~/.proxy487/proxy-list.txt') from None
-    if not proxies:
-        raise ValueError('No proxies configured in ~/.proxy487/proxy-list.txt')
-    chosen = directory / 'chosen'
-    host = chosen.read_text().strip() if chosen.exists() else ''
-    proxy = next((p for p in proxies if not host or urlsplit(p).hostname == host), None)
-    if proxy is None:
-        raise ValueError('Selected host is absent from ~/.proxy487/proxy-list.txt')
+    with config_lock(folder):
+        config = load_config(folder)
+        if not no_sync:
+            config = sync_config(folder, config)
+    proxy = profile_url(active_profile(config))
     env = os.environ.copy()
-    defaults = directory / 'default.env'
+    defaults = folder / 'default.env'
     try:
         lines = defaults.read_text().splitlines()
     except FileNotFoundError:
@@ -68,15 +61,93 @@ def main():
         env.setdefault(key, value.strip())
     for key in KEYS:
         env[key] = env[key.upper()] = proxy
-    bypass = env.get('no_proxy', env.get('NO_PROXY', DEFAULT_NO_PROXY))
+    bypass = env.get('no_proxy', env.get('NO_PROXY', DEFAULT_NO_PROXY if config.get('routing', {}).get('bypassLocalNetworks', True) else ''))
     env['no_proxy'] = env['NO_PROXY'] = bypass
     os.execvpe(args[0], args, env)
 
 
-if __name__ == '__main__':
+def arguments():
+    args = sys.argv[1:]
+    no_sync = args[:1] == ['--no-config-sync']
+    return (args[1:] if no_sync else args), no_sync
+
+
+def control():
+    args, no_sync = arguments()
+    if not args or args == ['--help']:
+        print('Usage: proxy487ctl [--no-config-sync] list | choose [NUMBER|ID|HOST] | init | import FILE|-')
+        return 0 if args else 2
+    folder = directory()
+    if args == ['init']:
+        with config_lock(folder):
+            return initialize(no_sync)
+    if args[0] == 'import' and len(args) == 2:
+        if args[1] == '-':
+            data = sys.stdin.buffer.read(LIMIT + 1)
+            if len(data) > LIMIT:
+                raise ValueError('Import exceeds 1 MiB')
+            try:
+                text = data.decode('utf-8-sig')
+            except UnicodeError:
+                raise ValueError('Import must be UTF-8') from None
+        else:
+            text = read_text(Path(args[1]))
+        incoming = parse_import(text)
+        with config_lock(folder):
+            current = load_config(folder, missing_ok=True)
+            config = merge(current, incoming)
+            save_import(folder, current, incoming, config)
+            if not no_sync:
+                config = sync_config(folder, config)
+        print(f'Imported {len(incoming["profiles"])} profiles; total {len(config["profiles"])}')
+        return
+    if args != ['list'] and not (args[0] == 'choose' and len(args) <= 2):
+        raise ValueError('Expected list, choose [NUMBER|ID|HOST], init, or import FILE|-')
+    with config_lock(folder):
+        config = load_config(folder)
+        if not no_sync:
+            config = sync_config(folder, config)
+    profiles = config['profiles']
+    selected = active_profile(config)
+    if args == ['list'] or len(args) == 1:
+        for number, profile in enumerate(profiles, 1):
+            p = profile['proxy']
+            host = f'[{p["host"]}]' if ':' in p['host'] else p['host']
+            # JSON escaping prevents imported labels/IDs from injecting terminal controls.
+            label = json.dumps(profile.get('name', ''), ensure_ascii=True)
+            identifier = json.dumps(profile['id'], ensure_ascii=True)
+            print(f'{"*" if profile["id"] == selected["id"] else " "} {number} {p["type"]}://{host}:{p["port"]} {label} [{identifier}]')
+        if args == ['list']:
+            return
+        try:
+            value = input('Choose proxy (number, ID or hostname): ').strip()
+        except EOFError:
+            raise ValueError('No selection provided') from None
+    else:
+        value = args[1]
+    matches = [p for p in profiles if p['id'] == value]
+    if not matches and value.isascii() and value.isdigit():
+        number = int(value)
+        if not 1 <= number <= len(profiles):
+            raise ValueError('Proxy number is out of range')
+        matches = [profiles[number - 1]]
+    if not matches:
+        matches = [p for p in profiles if p['proxy']['host'].lower() == value.lower().rstrip('.')]
+    if len(matches) != 1:
+        raise ValueError('Unknown or ambiguous selection; use profile number or ID')
+    with config_lock(folder):
+        config = load_config(folder)
+        if matches[0]['id'] not in {p['id'] for p in config['profiles']}:
+            raise ValueError('Profile was removed during selection; choose again')
+        config['activeProfileId'] = matches[0]['id']
+        atomic_write(folder / 'config.json', config)
+    print('Selected profile')
+
+
+if __name__ in ('__main__', 'proxy487ctl'):
     try:
-        sys.exit(main())
-    except (OSError, ValueError) as error:
+        sys.exit(control() if __name__ == 'proxy487ctl' else main())
+    except (OSError, ValueError, RecursionError) as error:
         # Do not echo URLs or arbitrary OS errors: they can contain credentials.
-        print(str(error) if isinstance(error, ValueError) else 'Cannot read configuration or execute command', file=sys.stderr)
+        print(str(error) if isinstance(error, ValueError) and not isinstance(error, UnicodeError) else 'Cannot read configuration or execute command', file=sys.stderr)
         sys.exit(1)

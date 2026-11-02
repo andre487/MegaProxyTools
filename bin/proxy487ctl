@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Manage proxy487 profiles using the same configuration and validation."""
+from pathlib import Path
+import runpy
+
+runpy.run_path(str(Path(__file__).resolve().with_name('proxy487')), run_name='proxy487ctl')

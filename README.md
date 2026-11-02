@@ -11,20 +11,28 @@ Documentation: **[English](docs/en/README.md)** · **[Русский](docs/ru/RE
 
 ## Quick start
 
-Requires Git, Python 3.9+ and a POSIX shell. No pip, virtualenv or background service.
+Requires Python 3.9+, Bash, curl and tar on macOS or Linux. No Git, pip, virtualenv or background service.
 
 ```sh
-git clone https://github.com/andre487/MegaProxyTools.git
-cd MegaProxyTools
-./install.sh
-proxy487 --init
-${EDITOR:-vi} ~/.proxy487/proxy-list.txt
+curl -fsSL https://raw.githubusercontent.com/andre487/MegaProxyTools/main/install.sh | bash
+proxy487ctl import /path/to/MegaProxy.json
+proxy487ctl list
+proxy487ctl choose
 proxy487 curl https://example.com
 noproxy487 curl https://example.com
 ```
 
-Add `~/.local/bin` to PATH if needed. Existing `~/.proxy487` settings work unchanged.
-Put one proxy URL per line, e.g. `https://USER:URL_ENCODED_PASSWORD@proxy.example.com:443`.
+Run the same install command to update; configuration is retained.
+Add `~/.local/bin` to PATH if needed. Settings use MegaProxyConfig v8 in
+`~/.config/megaproxy-tools/config.json` (respects `XDG_CONFIG_HOME`). Existing
+`proxy-list.txt` and `chosen` are migrated automatically, retaining the originals.
+Import also accepts ProxyList, SuperProxy, FoxyProxy, legacy browser JSON and
+ZeroOmega/SwitchyOmega fixed profiles; use `proxy487ctl import -` for stdin.
+HTTPS and SOCKS5 are supported; incompatible protocols/settings produce a notice.
+Stable IDs are merged, existing selection and eligible omitted passwords are retained.
+A root `subscription` in imported JSON enables startup refresh, at most once per hour.
+Use `proxy487 --no-config-sync COMMAND` or `proxy487ctl --no-config-sync list` to skip it.
+Refresh logs go to stderr before command execution; failures retain saved settings.
 Configuration contains secrets: never commit it.
 
 ## Development
