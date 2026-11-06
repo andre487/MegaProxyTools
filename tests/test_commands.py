@@ -515,6 +515,31 @@ class Commands(unittest.TestCase):
             self.run_command("proxy487", "/nonexistent/command").returncode, 0
         )
 
+    @unittest.skipUnless(os.name == "nt", "Windows PATHEXT command lookup")
+    def test_cmd_child_resolved_by_name(self):
+        self.configure(self.profile("local"))
+        tools = self.home / "command shims"
+        tools.mkdir()
+        (tools / "child-probe.cmd").write_text(
+            '@echo off\n"%~1" "%~2" %3\nexit /b %errorlevel%\n'
+        )
+        probe = self.home / "probe arguments.py"
+        probe.write_text(
+            "import json,sys; print(json.dumps(sys.argv[1:])); sys.exit(23)"
+        )
+        self.env["PATH"] = str(tools) + os.pathsep + self.env["PATH"]
+        for command in ("proxy487", "noproxy487"):
+            with self.subTest(command=command):
+                result = self.run_command(
+                    command,
+                    "child-probe",
+                    sys.executable,
+                    str(probe),
+                    "argument with spaces",
+                )
+                self.assertEqual(result.returncode, 23, result.stderr)
+                self.assertEqual(json.loads(result.stdout), ["argument with spaces"])
+
 
 if __name__ == "__main__":
     unittest.main()

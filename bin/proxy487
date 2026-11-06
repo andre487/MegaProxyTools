@@ -4,6 +4,7 @@
 import os
 import pathlib
 import re
+import shutil
 import subprocess as sp
 import sys
 
@@ -74,6 +75,7 @@ def main() -> int | None:
     )
     env["no_proxy"] = env["NO_PROXY"] = bypass
     if os.name == "nt":
+        args[0] = shutil.which(args[0]) or args[0]
         return sp.call(args, env=env)
     os.execvpe(args[0], args, env)
 
