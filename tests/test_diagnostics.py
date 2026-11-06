@@ -64,16 +64,15 @@ class Diagnostics(unittest.TestCase):
                 )
             )
             path = pathlib.Path(arguments[arguments.index("--output") + 1])
-            self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+            if os.name != "nt":
+                self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
             path.write_bytes(b"ip=192.0.2.1\nloc=GB\n")
             return types.SimpleNamespace(
                 returncode=0, stdout=json.dumps(metrics()), stderr="private-secret"
             )
 
         with (
-            mock.patch.object(
-                megaproxy.diagnostics.subprocess, "run", side_effect=invoke
-            ),
+            mock.patch.object(megaproxy.diagnostics.sp, "run", side_effect=invoke),
             mock.patch.dict(
                 os.environ,
                 {"HTTPS_PROXY": "wrong", "NO_PROXY": "*", "hTtP_PrOxY": "wrong"},
@@ -100,9 +99,7 @@ class Diagnostics(unittest.TestCase):
             mock.patch.object(
                 megaproxy.diagnostics.shutil, "which", return_value="curl"
             ),
-            mock.patch.object(
-                megaproxy.diagnostics.subprocess, "run", return_value=version
-            ),
+            mock.patch.object(megaproxy.diagnostics.sp, "run", return_value=version),
         ):
             self.assertEqual(
                 megaproxy.diagnostics.curl_command("2", self.proxy), "curl"
@@ -123,7 +120,7 @@ class Diagnostics(unittest.TestCase):
                 returncode=code, stdout=json.dumps(data), stderr="private-secret"
             )
             with mock.patch.object(
-                megaproxy.diagnostics.subprocess, "run", return_value=result
+                megaproxy.diagnostics.sp, "run", return_value=result
             ):
                 with self.assertRaises(megaproxy.diagnostics.ProbeError) as failure:
                     megaproxy.diagnostics.request(

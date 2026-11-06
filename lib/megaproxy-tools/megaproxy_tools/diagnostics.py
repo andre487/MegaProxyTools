@@ -8,7 +8,7 @@ import pathlib
 import re
 import shutil
 import statistics
-import subprocess
+import subprocess as sp
 import tempfile
 
 from . import config as configuration
@@ -43,7 +43,7 @@ def curl_command(http_version: str, proxy: str | None) -> str:
     if executable is None:
         raise ValueError("Diagnostics require curl 8.4 or newer")
 
-    result = subprocess.run(
+    result = sp.run(
         [executable, "--disable", "--version"],
         capture_output=True,
         text=True,
@@ -152,7 +152,7 @@ def request(
             )
 
         try:
-            result = subprocess.run(
+            result = sp.run(
                 arguments,
                 input=settings,
                 env=env,
@@ -160,7 +160,7 @@ def request(
                 capture_output=True,
                 timeout=timeout + 5,
             )
-        except subprocess.TimeoutExpired:
+        except sp.TimeoutExpired:
             raise ProbeError("request timed out") from None
 
         try:

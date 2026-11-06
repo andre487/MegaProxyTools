@@ -1,0 +1,2 @@
+# Vendored schemas must retain the bytes recorded in schema-lock.json.
+lib/megaproxy-tools/config-schema/* text eol=lf

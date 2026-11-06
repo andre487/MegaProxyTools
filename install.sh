@@ -74,7 +74,7 @@ prefix=$(cd "$prefix" && pwd -P)
 [ "$source_dir/bin" != "$(cd "$prefix/bin" && pwd -P)" ] || { printf 'Installation bin must differ from the source bin\n' >&2; exit 1; }
 if [ "$install_from_git" = 0 ]; then
     mkdir -p "$prefix/lib/megaproxy-tools/config-schema" "$prefix/lib/megaproxy-tools/megaproxy_tools"
-    for name in __init__.py config.py sync.py cli.py diagnostics.py; do
+    for name in __init__.py config.py sync.py locking.py cli.py diagnostics.py; do
         install -m 644 "lib/megaproxy-tools/megaproxy_tools/$name" "$prefix/lib/megaproxy-tools/megaproxy_tools/$name"
     done
     for name in megaproxy-v8.schema.json android-v8.schema.json LICENSE schema-lock.json; do

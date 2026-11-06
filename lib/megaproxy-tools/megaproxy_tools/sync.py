@@ -1,8 +1,6 @@
 """Hourly HTTPS configuration snapshots; no background process or external packages."""
 
 import base64
-import contextlib
-import fcntl
 import hashlib
 import http.client
 import json
@@ -14,17 +12,7 @@ import urllib.error
 import urllib.request
 
 from . import config as configuration
-
-
-@contextlib.contextmanager
-def config_lock(folder):
-    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
-
-    with os.fdopen(
-        os.open(folder / "config.lock", os.O_RDWR | os.O_CREAT, 0o600), "r+"
-    ) as stream:
-        fcntl.flock(stream, fcntl.LOCK_EX)
-        yield
+from .locking import config_lock as config_lock
 
 
 def state_path(folder):

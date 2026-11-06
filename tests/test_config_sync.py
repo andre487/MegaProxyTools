@@ -6,7 +6,7 @@ import json
 import os
 import pathlib
 import runpy
-import subprocess
+import subprocess as sp
 import sys
 import tempfile
 import unittest
@@ -112,7 +112,8 @@ class ConfigSync(unittest.TestCase):
         self.assertEqual(megaproxy.config.load_config(self.folder), result)
         self.assertNotIn("feed-secret", self.logs.getvalue())
         self.assertNotIn("proxy-secret", self.logs.getvalue())
-        self.assertEqual(sync.state_path(self.folder).stat().st_mode & 0o777, 0o600)
+        if os.name != "nt":
+            self.assertEqual(sync.state_path(self.folder).stat().st_mode & 0o777, 0o600)
 
     def test_concurrent_launches_share_throttle(self):
         def launch():
@@ -371,6 +372,11 @@ class ConfigSync(unittest.TestCase):
             with (
                 mock.patch.object(sys, "argv", ["proxy487", "child", "argument"]),
                 mock.patch("os.execvpe", side_effect=child),
+                mock.patch.object(
+                    sp,
+                    "call",
+                    side_effect=lambda args, env: child(args[0], args, env),
+                ),
             ):
                 with self.assertRaises(SystemExit) as exit_status:
                     runpy.run_path(str(ROOT / "bin/proxy487"), run_name="__main__")
@@ -392,7 +398,7 @@ class ConfigSync(unittest.TestCase):
                     "--no-config-sync",
                 ]
             )
-            result = subprocess.run(
+            result = sp.run(
                 [sys.executable, str(ROOT / "bin" / command), *args],
                 text=True,
                 capture_output=True,

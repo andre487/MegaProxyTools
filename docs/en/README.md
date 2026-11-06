@@ -52,6 +52,53 @@ runtime files into `/custom/path/lib/megaproxy-tools`. Re-run after pulling upda
 To uninstall, remove the three commands and that library directory; settings remain.
 You can also run `./bin/proxy487` and `./bin/proxy487ctl` from the complete checkout.
 
+### Windows
+
+Install or update from Windows PowerShell 5.1+ or PowerShell 7:
+
+```powershell
+irm https://raw.githubusercontent.com/andre487/MegaProxyTools/main/win/install.ps1 | iex
+```
+
+The loader downloads an archive, runs `install.cmd` and removes temporary files.
+Repeat the command to update; settings are retained. For a persistent Git checkout:
+
+```powershell
+$env:INSTALL_FROM_GIT = '1'
+irm https://raw.githubusercontent.com/andre487/MegaProxyTools/main/win/install.ps1 | iex
+Remove-Item Env:INSTALL_FROM_GIT
+```
+
+This clones into `PREFIX\src\MegaProxyTools` and generates wrappers pointing there.
+Repeated installation fetches `MEGAPROXY_TOOLS_REF` (default `main`) and updates
+through fast-forward. Dirty, unrelated or diverged checkouts stop the update.
+`MEGAPROXY_TOOLS_REF` also selects the ordinary archive version; use the same ref
+in the loader URL when selecting a different version of the loader itself.
+
+Download and extract the complete repository, or clone it. From PowerShell or cmd:
+
+```powershell
+.\install.cmd
+# Optional: run directly from the current Git checkout
+.\install.cmd --git
+```
+
+Python 3.10+ is required. The installer checks `python`, then `py -3`, and prints a
+winget installation command if neither works. `--git` checks Git too; it does not
+fetch or change the checkout. Ordinary installation copies the runtime and scripts;
+`--git` generates wrappers pointing to this checkout, so local edits apply immediately.
+Keep the checkout at the same path while using that mode.
+
+The default root is `%LOCALAPPDATA%\MegaProxyTools`; set `PREFIX` to override it.
+The installer adds its `bin` directory to the user PATH without administrator rights.
+Reopen your terminal afterward. Python is resolved through PATH when each `.cmd`
+command runs. PowerShell execution policy changes are not required.
+Repeat installation to update or switch modes; configuration is preserved.
+To uninstall, remove the installation directory and its user PATH entry.
+Use `curl.exe` in PowerShell to avoid the Windows PowerShell `curl` alias.
+POSIX permission modes such as 0600 are not Windows ACLs; keep configuration private
+using Windows file permissions.
+
 ## Configuration location
 
 Configuration lives in `$XDG_CONFIG_HOME/megaproxy-tools`, defaulting to
@@ -196,6 +243,23 @@ HTTPS_PROXY, ALL_PROXY, WS_PROXY and WSS_PROXY for the child only. Existing `no_
 takes precedence over `NO_PROXY`, including empty values. Otherwise local bypass
 (default true) includes localhost, loopback and 192.168/16; false uses an empty list.
 CIDR support varies by client. WebSocket environment variables are not universal.
+
+`proxy487` also defaults `NODE_USE_ENV_PROXY=1`. An inherited value or a value in
+`default.env` takes precedence (for example, `NODE_USE_ENV_PROXY=0` disables it).
+Node.js reads the flag on startup; explicitly configured agents/dispatchers can
+override this behavior. `noproxy487` removes the flag along with the proxy variables.
+
+| Runtime/client | Extra configuration |
+| --- | --- |
+| [Node.js](https://nodejs.org/en/learn/http/enterprise-network-configuration) | `NODE_USE_ENV_PROXY=1`: `fetch` on 22.21.0/24.0.0+, `http`/`https` on 22.21.0/24.5.0+. Older versions need application configuration. Built-in proxy support accepts HTTP/HTTPS proxies, not SOCKS. |
+| [Python urllib](https://docs.python.org/3/library/urllib.request.html#urllib.request.ProxyHandler), [Requests](https://requests.readthedocs.io/en/latest/user/advanced/#proxies) | Read proxy variables by default; no extra flag. This does not apply to all Python HTTP clients. |
+| [Go net/http](https://pkg.go.dev/net/http#DefaultTransport) | Default transport reads proxy variables; no extra flag. A custom transport can behave differently. |
+| [Modern .NET HttpClient](https://learn.microsoft.com/en-us/dotnet/api/system.net.http.httpclient.defaultproxy) | Default proxy reads environment variables; no extra flag. Explicit handler settings can override it. |
+| [Bun fetch](https://bun.com/docs/runtime/networking/fetch) | Reads proxy variables by default; no extra flag. |
+| [Java](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/doc-files/net-properties.html) | Usually requires JVM properties such as `http.proxyHost`/`https.proxyHost` or client configuration. `java.net.useSystemProxies=true` enables OS settings, not a general mapping of our environment variables. |
+
+Protocol support, authentication and bypass rules depend on the individual client.
+The wrapper cannot force a client that ignores proxy variables to use a proxy.
 
 `noproxy487 [--] COMMAND [ARG ...]` clears these variables and NO_PROXY in every letter
 case. It does not override application-specific files, OS settings, VPNs or transparent
