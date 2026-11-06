@@ -11,6 +11,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
+@unittest.skipIf(os.name == "nt", "POSIX shell installer; see test_windows_install")
 class Installation(unittest.TestCase):
     def test_checkout_and_piped_installation(self):
         with tempfile.TemporaryDirectory() as temporary:

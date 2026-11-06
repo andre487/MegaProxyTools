@@ -64,7 +64,8 @@ class Diagnostics(unittest.TestCase):
                 )
             )
             path = pathlib.Path(arguments[arguments.index("--output") + 1])
-            self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+            if os.name != "nt":
+                self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
             path.write_bytes(b"ip=192.0.2.1\nloc=GB\n")
             return types.SimpleNamespace(
                 returncode=0, stdout=json.dumps(metrics()), stderr="private-secret"

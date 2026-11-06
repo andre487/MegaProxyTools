@@ -9,6 +9,9 @@ import unittest
 
 BIN = pathlib.Path(__file__).resolve().parents[1] / "bin"
 KEYS = ("http_proxy", "https_proxy", "all_proxy", "ws_proxy", "wss_proxy")
+HTTP_PROXY = "HTTP_PROXY" if os.name == "nt" else "http_proxy"
+HTTPS_PROXY = "HTTPS_PROXY" if os.name == "nt" else "https_proxy"
+NO_PROXY = "NO_PROXY" if os.name == "nt" else "no_proxy"
 
 
 class Commands(unittest.TestCase):
@@ -18,7 +21,13 @@ class Commands(unittest.TestCase):
         self.home = pathlib.Path(self.temp.name)
         self.config = self.home / ".config" / "megaproxy-tools"
         self.config.mkdir(parents=True)
-        self.env = dict(os.environ, HOME=str(self.home), NO_PROXY="internal.example")
+        self.env = dict(
+            os.environ,
+            HOME=str(self.home),
+            USERPROFILE=str(self.home),
+            PYTHONUTF8="1",
+            NO_PROXY="internal.example",
+        )
         self.env.pop("no_proxy", None)
         self.env.pop("XDG_CONFIG_HOME", None)
         self.env.pop("XDG_STATE_HOME", None)
@@ -28,6 +37,8 @@ class Commands(unittest.TestCase):
             [sys.executable, str(BIN / name), *args],
             env=self.env,
             text=True,
+            encoding="utf-8",
+            timeout=15,
             capture_output=True,
         )
 
@@ -56,10 +67,11 @@ class Commands(unittest.TestCase):
         env = self.probe("proxy487")
 
         for key in KEYS:
-            self.assertEqual(env[key], "https://user:p%40ss@second.example:443")
-            self.assertEqual(env[key.upper()], env[key])
+            self.assertEqual(env[key.upper()], "https://user:p%40ss@second.example:443")
+            if os.name != "nt":
+                self.assertEqual(env[key.upper()], env[key])
 
-        self.assertEqual(env["no_proxy"], "internal.example")
+        self.assertEqual(env[NO_PROXY], "internal.example")
 
     def test_default_env(self):
         self.configure(self.profile("host", host="host.example"))
@@ -71,7 +83,7 @@ class Commands(unittest.TestCase):
         self.assertEqual(env["GODEBUG"], "http2client=0")
         self.assertEqual(env["EMPTY"], "")
         self.assertEqual(env["LITERAL"], "$(no-execution)=value")
-        self.assertEqual(env["http_proxy"], "https://host.example:443")
+        self.assertEqual(env[HTTP_PROXY], "https://host.example:443")
         self.env["GODEBUG"] = "existing"
         self.assertEqual(self.probe("proxy487")["GODEBUG"], "existing")
         self.assertNotIn("LITERAL", self.probe("noproxy487"))
@@ -82,11 +94,23 @@ class Commands(unittest.TestCase):
         self.assertNotIn("secret", result.stderr)
 
     def test_clear_all_variants(self):
-        for key in (*KEYS, "no_proxy"):
+        for key in (*KEYS, "no_proxy", "node_use_env_proxy"):
             self.env[key] = self.env[key.upper()] = "sentinel"
 
         env = self.probe("noproxy487")
-        self.assertFalse(any(k.lower() in (*KEYS, "no_proxy") for k in env))
+        self.assertFalse(
+            any(k.lower() in (*KEYS, "no_proxy", "node_use_env_proxy") for k in env)
+        )
+
+    def test_node_environment_proxy_default_and_overrides(self):
+        self.configure(self.profile("node"))
+        self.env.pop("NODE_USE_ENV_PROXY", None)
+        self.assertEqual(self.probe("proxy487")["NODE_USE_ENV_PROXY"], "1")
+        (self.config / "default.env").write_text("NODE_USE_ENV_PROXY=0\n")
+        self.assertEqual(self.probe("proxy487")["NODE_USE_ENV_PROXY"], "0")
+        self.env["NODE_USE_ENV_PROXY"] = "1"
+        self.assertEqual(self.probe("proxy487")["NODE_USE_ENV_PROXY"], "1")
+        self.assertNotIn("NODE_USE_ENV_PROXY", self.probe("noproxy487"))
 
     def test_errors_and_no_secret_disclosure(self):
         for text in (
@@ -109,12 +133,14 @@ class Commands(unittest.TestCase):
     def test_init_is_private_and_preserves_config(self):
         self.config.rmdir()
         self.assertEqual(self.run_command("proxy487ctl", "init").returncode, 0)
-        self.assertEqual(self.config.stat().st_mode & 0o777, 0o700)
+        if os.name != "nt":
+            self.assertEqual(self.config.stat().st_mode & 0o777, 0o700)
         self.configure(self.profile("host"))
         path = self.config / "config.json"
         before = path.read_bytes()
         self.assertEqual(self.run_command("proxy487ctl", "init").returncode, 0)
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        if os.name != "nt":
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(path.read_bytes(), before)
 
     def test_xdg_configuration_location(self):
@@ -123,21 +149,22 @@ class Commands(unittest.TestCase):
         for value in ("", "relative/path"):
             self.env["XDG_CONFIG_HOME"] = value
             self.assertEqual(
-                self.probe("proxy487")["https_proxy"], "https://default.example:443"
+                self.probe("proxy487")[HTTPS_PROXY], "https://default.example:443"
             )
 
         custom = self.home / "custom-config"
         self.env["XDG_CONFIG_HOME"] = str(custom)
         self.assertEqual(self.run_command("proxy487ctl", "init").returncode, 0)
         target = custom / "megaproxy-tools"
-        self.assertEqual(target.stat().st_mode & 0o777, 0o700)
+        if os.name != "nt":
+            self.assertEqual(target.stat().st_mode & 0o777, 0o700)
         self.assertFalse((target / "config.json").exists())
         self.assertNotEqual(self.run_command("proxy487", "true").returncode, 0)
         (target / "config.json").write_text(
             json.dumps(self.portable(self.profile("custom", host="custom.example")))
         )
         self.assertEqual(
-            self.probe("proxy487")["https_proxy"], "https://custom.example:443"
+            self.probe("proxy487")[HTTPS_PROXY], "https://custom.example:443"
         )
 
     def test_control_list_choose_and_init(self):
@@ -158,19 +185,20 @@ class Commands(unittest.TestCase):
             result = self.run_command("proxy487ctl", "choose", value)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
-                self.probe("proxy487")["https_proxy"], "socks5h://second.example:1080"
+                self.probe("proxy487")[HTTPS_PROXY], "socks5h://second.example:1080"
             )
 
         chosen = self.config / "config.json"
-        self.assertEqual(chosen.stat().st_mode & 0o777, 0o600)
+        if os.name != "nt":
+            self.assertEqual(chosen.stat().st_mode & 0o777, 0o600)
 
         for value in ("0", "3", "unknown", "https://user:secret@host:443"):
             result = self.run_command("proxy487ctl", "choose", value)
             self.assertNotEqual(result.returncode, 0)
             self.assertNotIn("secret", result.stderr)
             self.assertEqual(
-                json.loads(chosen.read_text())["activeProfileId"],
-                json.loads(chosen.read_text())["profiles"][1]["id"],
+                json.loads(chosen.read_text(encoding="utf-8"))["activeProfileId"],
+                json.loads(chosen.read_text(encoding="utf-8"))["profiles"][1]["id"],
             )
 
         result = subprocess.run(
@@ -178,12 +206,14 @@ class Commands(unittest.TestCase):
             input="1\n",
             env=self.env,
             text=True,
+            encoding="utf-8",
+            timeout=15,
             capture_output=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(
-            json.loads(chosen.read_text())["activeProfileId"],
-            json.loads(chosen.read_text())["profiles"][0]["id"],
+            json.loads(chosen.read_text(encoding="utf-8"))["activeProfileId"],
+            json.loads(chosen.read_text(encoding="utf-8"))["profiles"][0]["id"],
         )
         self.configure(
             self.profile("first", host="first.example"),
@@ -194,8 +224,8 @@ class Commands(unittest.TestCase):
             self.run_command("proxy487ctl", "choose", "first.example").returncode, 0
         )
         self.assertEqual(
-            json.loads(chosen.read_text())["activeProfileId"],
-            json.loads(chosen.read_text())["profiles"][1]["id"],
+            json.loads(chosen.read_text(encoding="utf-8"))["activeProfileId"],
+            json.loads(chosen.read_text(encoding="utf-8"))["profiles"][1]["id"],
         )
 
         for args in (("unknown",), ("list", "extra"), ("choose", "1", "extra")):
@@ -208,6 +238,8 @@ class Commands(unittest.TestCase):
             input=text,
             env=self.env,
             text=True,
+            encoding="utf-8",
+            timeout=15,
             capture_output=True,
         )
 
@@ -232,16 +264,21 @@ class Commands(unittest.TestCase):
         result = self.import_text("\ufeff" + json.dumps(document, ensure_ascii=False))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("p@ss", result.stdout + result.stderr)
-        stored = json.loads((self.config / "config.json").read_text())
+        stored = json.loads((self.config / "config.json").read_text(encoding="utf-8"))
         self.assertEqual(stored["profiles"][0]["name"], "Тест")
         self.assertEqual(
-            self.probe("proxy487")["https_proxy"],
+            self.probe("proxy487")[HTTPS_PROXY],
             "https://u%2Bser:p%40ss%3Aword@proxy.example:443",
         )
         document["schema"] = "dev.megaproxy.config"
         self.assertEqual(self.import_text(document).returncode, 0)
         self.assertEqual(
-            len(json.loads((self.config / "config.json").read_text())["profiles"]), 1
+            len(
+                json.loads((self.config / "config.json").read_text(encoding="utf-8"))[
+                    "profiles"
+                ]
+            ),
+            1,
         )
 
     def test_portable_merge_selection_order_and_secrets(self):
@@ -257,13 +294,15 @@ class Commands(unittest.TestCase):
         result = self.import_text(incoming)
         self.assertEqual(result.returncode, 0, result.stderr)
         path = self.config / "config.json"
-        config = json.loads(path.read_text())
+        config = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual([p["id"] for p in config["profiles"]], ["a", "b", "c"])
         self.assertEqual(config["activeProfileId"], "b")
         self.assertEqual(config["profiles"][1]["proxy"]["password"], "other")
         self.assertFalse(config["routing"]["bypassLocalNetworks"])
         self.assertEqual(self.import_text(incoming).returncode, 0)
-        self.assertEqual(len(json.loads(path.read_text())["profiles"]), 3)
+        self.assertEqual(
+            len(json.loads(path.read_text(encoding="utf-8"))["profiles"]), 3
+        )
         self.assertEqual(
             self.import_text(
                 self.portable(self.profile("b", username="u", password=""))
@@ -271,7 +310,10 @@ class Commands(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            json.loads(path.read_text())["profiles"][1]["proxy"]["password"], ""
+            json.loads(path.read_text(encoding="utf-8"))["profiles"][1]["proxy"][
+                "password"
+            ],
+            "",
         )
 
         for key, value in (
@@ -285,13 +327,14 @@ class Commands(unittest.TestCase):
             changed["proxy"][key] = value
             self.assertEqual(self.import_text(self.portable(changed)).returncode, 0)
             self.assertNotIn(
-                "password", json.loads(path.read_text())["profiles"][0]["proxy"]
+                "password",
+                json.loads(path.read_text(encoding="utf-8"))["profiles"][0]["proxy"],
             )
 
         self.env.pop("NO_PROXY", None)
         # Restore a usable selected HTTPS profile, without resetting root routing preferences.
         self.assertEqual(self.import_text(self.portable(b)).returncode, 0)
-        self.assertEqual(self.probe("proxy487")["no_proxy"], "")
+        self.assertEqual(self.probe("proxy487")[NO_PROXY], "")
 
     def test_import_preserves_implicit_first_selection(self):
         self.assertEqual(
@@ -300,7 +343,7 @@ class Commands(unittest.TestCase):
         self.assertEqual(
             self.import_text(self.portable(self.profile("b"), active="b")).returncode, 0
         )
-        config = json.loads((self.config / "config.json").read_text())
+        config = json.loads((self.config / "config.json").read_text(encoding="utf-8"))
         self.assertEqual(config["activeProfileId"], "a")
 
     def test_invalid_import_preserves_config_and_hides_secrets(self):
@@ -349,7 +392,8 @@ class Commands(unittest.TestCase):
                 self.assertNotIn("Traceback", result.stderr)
                 self.assertEqual(path.read_bytes(), original)
 
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        if os.name != "nt":
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
     def test_unsupported_profiles_and_platform_settings_warn(self):
         data = self.portable(
@@ -372,7 +416,7 @@ class Commands(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Skipped 2", result.stderr)
         self.assertIn("discarded", result.stderr)
-        config = json.loads((self.config / "config.json").read_text())
+        config = json.loads((self.config / "config.json").read_text(encoding="utf-8"))
         self.assertEqual(len(config["profiles"]), 1)
         self.assertNotIn("tls", config)
         self.assertNotIn("dns", config["profiles"][0])
@@ -395,7 +439,7 @@ class Commands(unittest.TestCase):
             self.run_command("proxy487ctl", "choose", "ipv6").returncode, 0
         )
         self.assertEqual(
-            self.probe("proxy487")["https_proxy"],
+            self.probe("proxy487")[HTTPS_PROXY],
             "socks5h://u%3Aname:p%2Bss@[2001:db8::1]:1080",
         )
 
@@ -405,7 +449,7 @@ class Commands(unittest.TestCase):
 
     def test_pinned_schema_integrity_and_optional_fields(self):
         folder = BIN.parent / "lib/megaproxy-tools/config-schema"
-        lock = json.loads((folder / "schema-lock.json").read_text())
+        lock = json.loads((folder / "schema-lock.json").read_text(encoding="utf-8"))
         self.assertEqual(len(lock["commit"]), 40)
 
         for name, digest in lock["files"].items():

@@ -4,6 +4,7 @@
 import os
 import pathlib
 import re
+import subprocess
 import sys
 
 sys.path.insert(
@@ -57,6 +58,8 @@ def main() -> int | None:
 
         env.setdefault(key, value.strip())
 
+    env.setdefault("NODE_USE_ENV_PROXY", "1")
+
     for key in KEYS:
         env[key] = env[key.upper()] = proxy
 
@@ -70,6 +73,8 @@ def main() -> int | None:
         ),
     )
     env["no_proxy"] = env["NO_PROXY"] = bypass
+    if os.name == "nt":
+        return subprocess.call(args, env=env)
     os.execvpe(args[0], args, env)
 
 
