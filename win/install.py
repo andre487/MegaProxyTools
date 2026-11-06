@@ -4,7 +4,7 @@ import argparse
 import ctypes
 import os
 import shutil
-import subprocess
+import subprocess as sp
 import sys
 from pathlib import Path
 
@@ -33,7 +33,7 @@ def install(source, prefix, git=False, python_command="python"):
                 "Git is required for --git. Install it with: "
                 "winget install --id Git.Git --exact"
             )
-        result = subprocess.run(
+        result = sp.run(
             ["git", "-C", str(source), "rev-parse", "--show-toplevel"],
             check=True,
             capture_output=True,
@@ -140,6 +140,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, sp.CalledProcessError) as error:
         print(f"Installation failed: {error}", file=sys.stderr)
         sys.exit(1)

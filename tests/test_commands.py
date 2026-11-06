@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import pathlib
-import subprocess
+import subprocess as sp
 import sys
 import tempfile
 import unittest
@@ -33,7 +33,7 @@ class Commands(unittest.TestCase):
         self.env.pop("XDG_STATE_HOME", None)
 
     def run_command(self, name, *args):
-        return subprocess.run(
+        return sp.run(
             [sys.executable, str(BIN / name), *args],
             env=self.env,
             text=True,
@@ -201,7 +201,7 @@ class Commands(unittest.TestCase):
                 json.loads(chosen.read_text(encoding="utf-8"))["profiles"][1]["id"],
             )
 
-        result = subprocess.run(
+        result = sp.run(
             [sys.executable, str(BIN / "proxy487ctl"), "choose"],
             input="1\n",
             env=self.env,
@@ -233,7 +233,7 @@ class Commands(unittest.TestCase):
 
     def import_text(self, data):
         text = data if isinstance(data, str) else json.dumps(data)
-        return subprocess.run(
+        return sp.run(
             [sys.executable, str(BIN / "proxy487ctl"), "import", "-"],
             input=text,
             env=self.env,

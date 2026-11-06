@@ -50,7 +50,9 @@
             $url = 'https://codeload.github.com/andre487/MegaProxyTools/zip/' + [Uri]::EscapeDataString($ref)
             Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $archive
             $unpacked = Join-Path $temporary 'unpacked'
-            Expand-Archive -LiteralPath $archive -DestinationPath $unpacked
+            # Expand-Archive is a script module and can be blocked by Restricted policy.
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [IO.Compression.ZipFile]::ExtractToDirectory($archive, $unpacked)
             $roots = @(Get-ChildItem -LiteralPath $unpacked -Directory)
             if ($roots.Count -ne 1) { throw 'Invalid source archive' }
             & (Join-Path $roots[0].FullName 'install.cmd')

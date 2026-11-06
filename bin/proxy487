@@ -4,7 +4,7 @@
 import os
 import pathlib
 import re
-import subprocess
+import subprocess as sp
 import sys
 
 sys.path.insert(
@@ -74,7 +74,7 @@ def main() -> int | None:
     )
     env["no_proxy"] = env["NO_PROXY"] = bypass
     if os.name == "nt":
-        return subprocess.call(args, env=env)
+        return sp.call(args, env=env)
     os.execvpe(args[0], args, env)
 
 

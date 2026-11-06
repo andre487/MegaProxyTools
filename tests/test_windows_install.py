@@ -2,7 +2,7 @@ import importlib.util
 import json
 import os
 import shutil
-import subprocess
+import subprocess as sp
 import sys
 import tempfile
 import unittest
@@ -21,7 +21,7 @@ spec.loader.exec_module(installer)
 class WindowsInstallation(unittest.TestCase):
     def test_commands_run_by_name_in_cmd_and_powershell(self):
         with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary)
+            base = Path(temporary).resolve()
             target = installer.install(ROOT, base / "installed tools")
             config = base / "config/megaproxy-tools"
             config.mkdir(parents=True)
@@ -68,7 +68,7 @@ class WindowsInstallation(unittest.TestCase):
                             )
                         if shell == "cmd":
                             invocation = (
-                                subprocess.list2cmdline([os.environ["COMSPEC"]])
+                                sp.list2cmdline([os.environ["COMSPEC"]])
                                 + f' /d /s /c "{command} {arguments}"'
                             )
                         else:
@@ -79,7 +79,7 @@ class WindowsInstallation(unittest.TestCase):
                                 "-Command",
                                 f"& {command} {arguments}; exit $LASTEXITCODE",
                             ]
-                        result = subprocess.run(
+                        result = sp.run(
                             invocation,
                             env=env,
                             capture_output=True,
@@ -118,14 +118,12 @@ class WindowsInstallation(unittest.TestCase):
     @unittest.skipUnless(shutil.which("git"), "Git checkout integration requires Git")
     def test_copy_git_update_and_wrappers(self):
         with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary)
+            base = Path(temporary).resolve()
             source = base / "source пробел %PATH% ! (checkout)"
             prefix = base / "installed tools"
             for name in ("bin", "lib"):
                 shutil.copytree(ROOT / name, source / name)
-            subprocess.run(
-                ["git", "init", str(source)], check=True, capture_output=True
-            )
+            sp.run(["git", "init", str(source)], check=True, capture_output=True)
             env = dict(os.environ, XDG_CONFIG_HOME=str(base / "config"))
             env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env["PATH"]
             for git in (False, True, False):
@@ -137,7 +135,7 @@ class WindowsInstallation(unittest.TestCase):
                     str(expected).replace("%", "%%"),
                     wrapper.read_text(encoding="utf-8"),
                 )
-                result = subprocess.run(
+                result = sp.run(
                     [os.environ["COMSPEC"], "/d", "/c", str(wrapper), "--help"],
                     env=env,
                     capture_output=True,
@@ -149,10 +147,10 @@ class WindowsInstallation(unittest.TestCase):
                     "import json,sys; print(json.dumps(sys.argv[1:])); sys.exit(7)",
                     encoding="utf-8",
                 )
-                result = subprocess.run(
-                    subprocess.list2cmdline([os.environ["COMSPEC"]])
+                result = sp.run(
+                    sp.list2cmdline([os.environ["COMSPEC"]])
                     + ' /d /s /c "'
-                    + subprocess.list2cmdline(
+                    + sp.list2cmdline(
                         [
                             str(target / "noproxy487.cmd"),
                             sys.executable,
@@ -232,7 +230,7 @@ class WindowsInstallation(unittest.TestCase):
             )
             env = dict(os.environ)
             env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env["PATH"]
-            result = subprocess.run(
+            result = sp.run(
                 [
                     os.environ["COMSPEC"],
                     "/d",
@@ -248,7 +246,7 @@ class WindowsInstallation(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout), [["--git"], "python"])
 
             env["PATH"] = str(Path(os.environ["SystemRoot"]) / "System32")
-            result = subprocess.run(
+            result = sp.run(
                 [os.environ["COMSPEC"], "/d", "/c", str(source / "install.cmd")],
                 env=env,
                 capture_output=True,

@@ -1,6 +1,6 @@
 import os
 import shutil
-import subprocess
+import subprocess as sp
 import sys
 import tempfile
 import unittest
@@ -15,7 +15,7 @@ class WindowsBootstrap(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.base = Path(temporary.name)
+        self.base = Path(temporary.name).resolve()
         self.source = self.base / "source"
         for name in ("bin", "lib", "win"):
             shutil.copytree(
@@ -68,7 +68,7 @@ class WindowsBootstrap(unittest.TestCase):
                     )
 
     def run_loader(self):
-        result = subprocess.run(
+        result = sp.run(
             [
                 "powershell.exe",
                 "-NoProfile",
@@ -83,6 +83,7 @@ function Invoke-WebRequest {
     [IO.File]::WriteAllText($env:TEST_DOWNLOAD_LOG, $Uri)
     Copy-Item -LiteralPath $env:TEST_ARCHIVE -Destination $OutFile
 }
+function Expand-Archive { throw 'Archive script module is unavailable under Restricted' }
 try {
     [IO.File]::ReadAllText($env:TEST_LOADER) | Invoke-Expression
     exit 0
@@ -136,7 +137,7 @@ try {
     @unittest.skipUnless(shutil.which("git"), "Git integration requires Git")
     def test_git_clone_update_and_dirty_checkout_protection(self):
         def git(*args):
-            return subprocess.run(
+            return sp.run(
                 ["git", *args],
                 env=self.env,
                 check=True,

@@ -1,7 +1,7 @@
 import errno
 import os
 import pathlib
-import subprocess
+import subprocess as sp
 import sys
 import tempfile
 import unittest
@@ -51,7 +51,7 @@ class ConfigLock(unittest.TestCase):
             try:
                 with self.assertRaisesRegex(ValueError, "release lock"):
                     with config_lock(folder):
-                        child = subprocess.Popen(
+                        child = sp.Popen(
                             [
                                 sys.executable,
                                 "-u",
@@ -65,12 +65,12 @@ class ConfigLock(unittest.TestCase):
                                 str(LIB),
                                 str(folder),
                             ],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
+                            stdout=sp.PIPE,
+                            stderr=sp.PIPE,
                             text=True,
                         )
                         self.assertEqual(child.stdout.readline().strip(), "ready")
-                        with self.assertRaises(subprocess.TimeoutExpired):
+                        with self.assertRaises(sp.TimeoutExpired):
                             child.communicate(timeout=0.3)
                         raise ValueError("release lock")
                 stdout, stderr = child.communicate(timeout=5)

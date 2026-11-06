@@ -6,7 +6,7 @@ import json
 import os
 import pathlib
 import runpy
-import subprocess
+import subprocess as sp
 import sys
 import tempfile
 import unittest
@@ -372,8 +372,9 @@ class ConfigSync(unittest.TestCase):
             with (
                 mock.patch.object(sys, "argv", ["proxy487", "child", "argument"]),
                 mock.patch("os.execvpe", side_effect=child),
-                mock.patch(
-                    "subprocess.call",
+                mock.patch.object(
+                    sp,
+                    "call",
                     side_effect=lambda args, env: child(args[0], args, env),
                 ),
             ):
@@ -397,7 +398,7 @@ class ConfigSync(unittest.TestCase):
                     "--no-config-sync",
                 ]
             )
-            result = subprocess.run(
+            result = sp.run(
                 [sys.executable, str(ROOT / "bin" / command), *args],
                 text=True,
                 capture_output=True,

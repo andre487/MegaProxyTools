@@ -2,7 +2,7 @@
 """Run a command without standard HTTP, SOCKS and WebSocket proxy variables."""
 
 import os
-import subprocess
+import subprocess as sp
 import sys
 
 
@@ -31,7 +31,7 @@ def main() -> int | None:
     }
     env = {k: v for k, v in os.environ.items() if k.lower() not in keys}
     if os.name == "nt":
-        return subprocess.call(args, env=env)
+        return sp.call(args, env=env)
     os.execvpe(args[0], args, env)
 
 

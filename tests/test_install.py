@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import shutil
-import subprocess
+import subprocess as sp
 import sys
 import tarfile
 import tempfile
@@ -62,7 +62,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                 )
 
                 if mode == "checkout":
-                    result = subprocess.run(
+                    result = sp.run(
                         ["sh", str(ROOT / "install.sh")],
                         cwd=folder,
                         env=run_env,
@@ -79,7 +79,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                         broken.write_text("not an archive")
                         run_env["TEST_ARCHIVE"] = str(broken)
 
-                    result = subprocess.run(
+                    result = sp.run(
                         ["bash"],
                         input=(ROOT / "install.sh").read_text(),
                         cwd=folder,
@@ -95,7 +95,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                     self.assertEqual(result.returncode, 0, result.stderr)
 
                     for command in ("noproxy487", "proxy487ctl"):
-                        check = subprocess.run(
+                        check = sp.run(
                             [str(prefix / "bin" / command), "--help"],
                             env=run_env,
                             text=True,
@@ -119,7 +119,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                     runner.rename(hidden_runner)
 
                     try:
-                        check = subprocess.run(
+                        check = sp.run(
                             [str(controller), "--no-config-sync", "import", "-"],
                             input=json.dumps(
                                 {
@@ -142,7 +142,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                             capture_output=True,
                         )
                         self.assertEqual(check.returncode, 0, check.stderr)
-                        check = subprocess.run(
+                        check = sp.run(
                             [str(controller), "--no-config-sync", "list"],
                             env=independent_env,
                             text=True,
@@ -157,7 +157,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                     controller.rename(hidden_controller)
 
                     try:
-                        check = subprocess.run(
+                        check = sp.run(
                             [
                                 str(runner),
                                 "--no-config-sync",
@@ -178,7 +178,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                     config.parent.mkdir(parents=True)
                     config.write_text("existing private configuration")
                     (prefix / "bin/proxy487").write_text("outdated installed command")
-                    update = subprocess.run(
+                    update = sp.run(
                         ["bash"],
                         input=(ROOT / "install.sh").read_text(),
                         cwd=folder,
@@ -230,7 +230,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
             )
 
             def git(*args):
-                return subprocess.run(
+                return sp.run(
                     ["git", *args], env=env, text=True, check=True, capture_output=True
                 )
 
@@ -261,7 +261,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                 run_env = dict(
                     env, PREFIX=str(prefix), INSTALL_FROM_GIT="0" if flag else "1"
                 )
-                result = subprocess.run(
+                result = sp.run(
                     ["sh", str(source / "install.sh"), *(["--git"] if flag else [])],
                     cwd=folder,
                     env=run_env,
@@ -279,7 +279,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                 (source / "bin/noproxy487").write_text(
                     original.replace("Usage: noproxy487", "Usage: live noproxy487")
                 )
-                check = subprocess.run(
+                check = sp.run(
                     [str(prefix / "bin/noproxy487"), "--help"],
                     env=run_env,
                     text=True,
@@ -288,7 +288,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                 self.assertEqual(check.returncode, 0, check.stderr)
                 self.assertIn("Usage: live", check.stdout)
                 # Local Git mode leaves a dirty working tree untouched.
-                result = subprocess.run(
+                result = sp.run(
                     ["sh", str(source / "install.sh"), "--git"],
                     env=run_env,
                     text=True,
@@ -296,7 +296,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 before_copy = (source / "bin/noproxy487").read_bytes()
-                result = subprocess.run(
+                result = sp.run(
                     ["sh", str(source / "install.sh")],
                     env=dict(run_env, INSTALL_FROM_GIT="0"),
                     text=True,
@@ -320,7 +320,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
             checkout = home / ".local/src/MegaProxyTools"
 
             def piped(flag=True):
-                return subprocess.run(
+                return sp.run(
                     ["bash", "-s", "--", *(["--git"] if flag else [])],
                     input=(ROOT / "install.sh").read_text(),
                     cwd=folder,
@@ -355,7 +355,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
             self.assertEqual(modified.read_bytes(), before)
             # Installing directly over the source bin directory must not replace source files.
             before = (source / "bin/proxy487").read_bytes()
-            result = subprocess.run(
+            result = sp.run(
                 ["sh", str(source / "install.sh"), "--git"],
                 env=dict(env, PREFIX=str(source)),
                 text=True,
@@ -366,7 +366,7 @@ shutil.copyfile(os.environ['TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
             alias_prefix = folder / "aliased prefix"
             alias_prefix.mkdir()
             (alias_prefix / "bin").symlink_to(source / "bin", target_is_directory=True)
-            result = subprocess.run(
+            result = sp.run(
                 ["sh", str(source / "install.sh"), "--git"],
                 env=dict(env, PREFIX=str(alias_prefix)),
                 text=True,
